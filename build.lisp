@@ -7,13 +7,13 @@
 ;(sb-ext:restrict-compiler-policy 'safety 3 3)
 ;(setf *block-compile-default* t)
 (ql:quickload :local-time)
-(ql:quickload :cl-mpm/examples/ice/cliff-stability)
+(ql:quickload :cl-mpm/examples/ice-buoyancy)
 (ql:quickload :parse-float)
-(in-package :cl-mpm/examples/ice/cliff-stability)
+(in-package :cl-mpm/examples/ice-buoyancy)
 (setf cl-mpm/settings::*optimise-setting* cl-mpm/settings::*optimise-speed*)
 ;(setf cl-mpm/settings::*optimise-setting* cl-mpm/settings::*optimise-debug*)
 (defun main (&optional args)
-	(load "ice.lisp"))
+	(load "mici.lisp"))
 
 (sb-ext:save-lisp-and-die
    "worker"
