@@ -22,6 +22,7 @@
 (defparameter *top-dir* (merge-pathnames "/nobackup/rmvn14/thesis/mici/"))
 
 (let* ((density 918d0)
+       (dt 1d3)
        (water-density 1028d0)
        (height *height*)
        (flotation *floatation*))
@@ -56,6 +57,7 @@
          *sim*
          :output-dir output-dir
          :dt dt
+         :total-time 1d9
          :dt-scale 1d0
          :damping-factor 1d0
          :conv-criteria 1d-3
@@ -63,7 +65,8 @@
          :min-adaptive-steps -8
          :max-adaptive-steps 14
          :substeps 20
-         :steps 1000
+         :save-vtk-loadstep t
+         :save-vtk-dr nil
          :enable-plastic t
          :enable-damage t
          :plotter (lambda (sim))
