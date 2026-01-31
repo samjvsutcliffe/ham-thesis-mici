@@ -31,7 +31,7 @@
     (format t "Outputting to ~A~%" output-dir)
     (format t "Problem ~f ~f~%" height flotation)
     (let* ((mps 2))
-      (setup :refine 0.5
+      (setup :refine 0.25
              :friction 0.8d0
              :bench-length (* 0d0 height)
              :ice-height height
@@ -39,9 +39,11 @@
              :hydro-static nil
              :cryo-static t
              :melange nil
-             :aspect 2d0
-             :slope 0d0
+             :aspect 4d0
+             :slope 0.05d0
              :floatation-ratio flotation)
+      (setf (cl-mpm:sim-settings *sim*)
+            (list :OCEAN-HEIGHT *water-height*))
       (plot-domain)
       (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
       (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
@@ -70,7 +72,7 @@
          :enable-plastic t
          :enable-damage t
          :plotter (lambda (sim))
-         :explicit-dt-scale 0.49d0
+         :explicit-dt-scale 0.25d0
          :explicit-damping-factor 1d-3
          :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
          ;; :explicit-damping-factor 0d-4

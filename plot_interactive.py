@@ -99,8 +99,8 @@ with open(output_dir+"settings.json") as f:
     h = json_settings["RESOLUTION"]
     xlim = [0,json_settings["DOMAIN-SIZE"][0]]
     ylim = [0,json_settings["DOMAIN-SIZE"][1]]
-    #water_height =  json_settings["OCEAN-HEIGHT"]
-    water_height = 0
+    water_height =  json_settings["OCEAN-HEIGHT"]
+    #water_height = 0
     #ylim[0] = 20
 
 offset = h*2

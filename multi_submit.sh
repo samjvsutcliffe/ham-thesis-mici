@@ -9,9 +9,10 @@
 set -e
 module load aocc/5.0.0
 module load aocl/5.0.0
-#sbcl --dynamic-space-size 16000 --load "build.lisp" --quit
+sbcl --dynamic-space-size 16000 --load "build.lisp" --quit
 
 export REFINE=1
 export HEIGHT=400
 export FLOATATION=0.8
+export NAME=FINE
 sbatch batch_mici.sh

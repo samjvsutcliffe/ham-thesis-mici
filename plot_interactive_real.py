@@ -84,7 +84,7 @@ output_list = list(filter(output_regex.match,os.listdir(chalk_dir)))
 output_list.sort()
 for i,out in enumerate(output_list):                                    
     print("{}: {}".format(i,out))                                       
-output_dir = chalk_dir + "./{}/".format(output_list[int(input())]) 
+output_dir = chalk_dir + "/{}/".format(output_list[int(input())]) 
 #output_dir = "/nobackup/rmvn14/ham-chalk/"
 #output_dir = "./output/"
 #xlim = [0.06,0.12+0.08]
@@ -97,6 +97,7 @@ with open(output_dir+"settings.json") as f:
     xlim = [0,json_settings["DOMAIN-SIZE"][0]]
     ylim = [0,json_settings["DOMAIN-SIZE"][1]]
     water_height =  json_settings["OCEAN-HEIGHT"]
+    #water_height = 0
     #ylim[0] = 20
 
 offset = h*2
