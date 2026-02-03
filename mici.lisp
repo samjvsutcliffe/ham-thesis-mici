@@ -17,12 +17,13 @@
 (defparameter *ref* (parse-float:parse-float (if (uiop:getenv "REFINE") (uiop:getenv "REFINE") "1")))
 (defparameter *height* (parse-float:parse-float (if (uiop:getenv "HEIGHT") (uiop:getenv "HEIGHT") "400")))
 (defparameter *floatation* (parse-float:parse-float (if (uiop:getenv "FLOATATION") (uiop:getenv "FLOATATION") "0.9")))
+(defparameter *visc* (if (uiop:getenv "VISC") (string= (uiop:getenv "VISC") "TRUE") nil))
 (format t "Running~%")
 
 (defparameter *top-dir* (merge-pathnames "/nobackup/rmvn14/thesis/mici/"))
 
 (let* ((density 918d0)
-       (dt 1d3)
+       (dt 1d4)
        (water-density 1028d0)
        (height *height*)
        (flotation *floatation*))
@@ -31,7 +32,7 @@
     (format t "Outputting to ~A~%" output-dir)
     (format t "Problem ~f ~f~%" height flotation)
     (let* ((mps 2))
-      (setup :refine 0.25
+      (setup :refine 0.5
              :friction 0.8d0
              :bench-length (* 0d0 height)
              :ice-height height
@@ -40,26 +41,33 @@
              :cryo-static t
              :melange nil
              :aspect 4d0
-             :slope 0.05d0
+             :slope 0d0
              :floatation-ratio flotation)
       (setf (cl-mpm:sim-settings *sim*)
             (list :OCEAN-HEIGHT *water-height*))
       (plot-domain)
-      (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
+
+      (setf (cl-mpm/damage::sim-enable-ekl *sim*) nil)
       (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+
+      (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
       (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil (cl-mpm::sim-ghost-factor *sim*) nil)
       (setf lparallel:*debug-tasks-p* nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal *sim*) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant *sim*) nil)
       (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
       (setf (cl-mpm:sim-enable-damage *sim*) nil)
+      (cl-mpm::iterate-over-mps
+       (cl-mpm:sim-mps *sim*)
+       (lambda (mp)
+         (setf (cl-mpm/particle::mp-enable-viscosity mp) *visc*)))
       (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
       (let ((step 0))
         (cl-mpm/dynamic-relaxation::run-multi-stage
          *sim*
          :output-dir output-dir
          :dt dt
-         :total-time 1d9
+         :total-time 2d7
          :dt-scale 1d0
          :damping-factor 1d0
          :conv-criteria 1d-3
@@ -72,12 +80,12 @@
          :enable-plastic t
          :enable-damage t
          :plotter (lambda (sim))
-         :explicit-dt-scale 0.25d0
-         :explicit-damping-factor 1d-3
-         :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
-         ;; :explicit-damping-factor 0d-4
-         ;; :explicit-dt-scale 1d0
-         ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
+         ;:explicit-dt-scale 0.25d0
+         ;:explicit-damping-factor 1d-3
+         ;:explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
+         :explicit-damping-factor 1d-4
+         :explicit-dt-scale 5d0
+         :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
          :post-conv-step (lambda (sim)
                            (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) nil))
          :setup-quasi-static
@@ -93,5 +101,5 @@
            (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
            (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t
                  (cl-mpm::sim-velocity-algorithm sim) :BLEND
-                 (cl-mpm::sim-ghost-factor sim) nil ;(* 1d9 1d-4)
+                 (cl-mpm::sim-ghost-factor sim) nil
                  (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 2d0)))))))
