@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Request resources:
-#SBATCH --time=8:00:0  # 6 hours (hours:minutes:seconds)
+#SBATCH --time=6:00:0  # 6 hours (hours:minutes:seconds)
 #SBATCH -p shared
 #SBATCH -n 1                # number of MPI ranks
 #SBATCH --cpus-per-task=16   # number of MPI ranks per CPU socket
