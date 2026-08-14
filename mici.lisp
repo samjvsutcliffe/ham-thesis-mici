@@ -69,15 +69,15 @@
        (height *height*)
        (water-damping 0d0)
        (flotation *floatation*))
-  (let* ((mps 3)
+  (let* ((mps 4)
          (output-dir (merge-pathnames  (format nil "./output-~A-~D-~f-~f/" *name* *ref* height flotation) *top-dir*)))
     (format t "Outputting to ~A~%" output-dir)
     (format t "Problem ~f ~f~%" height flotation)
     (let* ((explicit-dt-scale 0.5d0)
-           (ice-aspect 2d0)
+           (ice-aspect 6d0)
            )
       (setup :refine *ref*
-             :multigrid-refines 0
+             :multigrid-refines 1
              :friction 0.5d0
              :bench-length 0d0;(* 1d0 height)
              :ice-height height
@@ -162,15 +162,21 @@
          :enable-plastic t
          :enable-damage t
          :plotter (lambda (sim))
+         :explicit-conv-criteria 1d-3
+         :elastic-dt-margin 1d3
+         :explicit-mass-scaling nil
+         :explicit-dt-scale 0.5d0
+         :explicit-damping-factor 1d-3
+         :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-usf
+
          ;:explicit-dt-scale explicit-dt-scale
          ;:explicit-damping-factor 1d-3
          ;:explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
-         :elastic-dt-margin 1d4
 
-         :explicit-damping-factor 0d-4
-         :explicit-dt-scale 50d0
+         ;:explicit-damping-factor 1d-2
+         ;:explicit-dt-scale 10d0
          ;:explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic 
-         :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-implicit-dynamic
+         ;:explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-implicit-dynamic
          :post-conv-step (lambda (sim)
                            (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) nil))
          :setup-quasi-static
