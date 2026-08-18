@@ -23,9 +23,9 @@
 
 ;; (defparameter *top-dir* (merge-pathnames "/nobackup/rmvn14/thesis/mici/"))
 (defparameter *top-dir* (merge-pathnames "./data/"))
-(defparameter *delay-time* 1d6)
+(defparameter *delay-time* 1d5)
 (defparameter *delay-exponent* 4d0)
-(defparameter *angle* 30d0)
+(defparameter *angle* 40d0)
 (defparameter *angle-r* 15d0)
 (defparameter *angle-psi* 5d0)
 (defparameter *rc* 0d0)
@@ -34,7 +34,7 @@
 (defparameter *enable-plastic-damage* nil)
 (defparameter *pd-oversize* 1d-3)
 (defparameter *ductility* 10d0)
-(defparameter *tensile-strength* 0.2d0)
+(defparameter *tensile-strength* 0.2d6)
 
 
 (defun damage-refinement-criteria (sim mesh c)
@@ -93,49 +93,51 @@
              ;:use-penalty nil
              ;:stick-base t 
              )
+
+      (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
       (push (list :SCALAR "water-pressure" #'cl-mpm/particle::mp-pressure) (cl-mpm::sim-output-list *sim*))
-    (cl-mpm/output:add-mp-output
-     *sim*
-     :SCALAR
-     "current-effective-angle"
-     (lambda (mp)
-       (if (typep mp 'cl-mpm/particle::particle-ice-brittle)
-           (* (/ 180 pi) (atan (* (/ (- 1d0 (cl-mpm/particle::mp-damage-shear mp))
-                                     (- 1d0 (cl-mpm/particle::mp-damage-compression mp)))
-                                  (tan (cl-mpm/particle::mp-phi mp)))))
-           0d0)))
-    (cl-mpm/output:add-mp-output
-     *sim*
-     :SCALAR
-     "current-cohesion"
-     (lambda (mp)
-       (if (typep mp 'cl-mpm/particle::particle-ice-brittle)
-           (*
-            (if (> (cl-mpm/constitutive::voight-trace (cl-mpm/particle::mp-stress mp)) 0d0)
-                (- 1d0 (cl-mpm/particle::mp-damage-tension mp))
-                (- 1d0 (cl-mpm/particle::mp-damage-compression mp)))
-            (max 0d0 (cl-mpm/particle::mp-c mp)))
-           0d0)))
+      (cl-mpm/output:add-mp-output
+       *sim*
+       :SCALAR
+       "current-effective-angle"
+       (lambda (mp)
+         (if (typep mp 'cl-mpm/particle::particle-ice-brittle)
+             (* (/ 180 pi) (atan (* (/ (- 1d0 (cl-mpm/particle::mp-damage-shear mp))
+                                       (- 1d0 (cl-mpm/particle::mp-damage-compression mp)))
+                                    (tan (cl-mpm/particle::mp-phi mp)))))
+             0d0)))
+      (cl-mpm/output:add-mp-output
+       *sim*
+       :SCALAR
+       "current-cohesion"
+       (lambda (mp)
+         (if (typep mp 'cl-mpm/particle::particle-ice-brittle)
+             (*
+              (if (> (cl-mpm/constitutive::voight-trace (cl-mpm/particle::mp-stress mp)) 0d0)
+                  (- 1d0 (cl-mpm/particle::mp-damage-tension mp))
+                  (- 1d0 (cl-mpm/particle::mp-damage-compression mp)))
+              (max 0d0 (cl-mpm/particle::mp-c mp)))
+             0d0)))
 
       (cl-mpm::domain-sort-mps *sim*)
       (when (typep *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-octree)
-          (setf (cl-mpm/dynamic-relaxation::sim-intra-mesh-aggregation *sim*) t)
-          (setf (cl-mpm/dynamic-relaxation::sim-octree-refinement-criteria *sim*)
-            (lambda (sim mesh c)
-              (or
-               (and
-                (= (cl-mpm/dynamic-relaxation::cell-mesh-index c) 0)
-                (> (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 0)
-                   (* (- ice-aspect 1.5) height))
-                (< (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 0)
-                   (* (+ 0.5d0 ice-aspect) height))
-                (> (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 1)
-                   (+ (* 2 (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
-                      (* height 0.9d0 flotation)))
-                )
-               (damage-refinement-criteria sim mesh c)
-               )
-              )))
+        (setf (cl-mpm/dynamic-relaxation::sim-intra-mesh-aggregation *sim*) t)
+        (setf (cl-mpm/dynamic-relaxation::sim-octree-refinement-criteria *sim*)
+              (lambda (sim mesh c)
+                (or
+                 (and
+                  (= (cl-mpm/dynamic-relaxation::cell-mesh-index c) 0)
+                  (> (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 0)
+                     (* (- ice-aspect 1.5) height))
+                  (< (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 0)
+                     (* (+ 0.5d0 ice-aspect) height))
+                  (> (cl-mpm/utils::varef (cl-mpm/mesh::cell-centroid c) 1)
+                     (+ (* 2 (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
+                        (* height 0.9d0 flotation)))
+                  )
+                 (damage-refinement-criteria sim mesh c)
+                 )
+                )))
 
       (plot-domain)
 
@@ -148,7 +150,6 @@
       (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
       (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*)  t
             (cl-mpm::sim-ghost-factor *sim*) nil)
-      (setf lparallel:*debug-tasks-p* nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal *sim*) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant *sim*) nil)
       (setf (cl-mpm:sim-settings *sim*)
@@ -167,8 +168,11 @@
                   :R-C *rc*
                   :GF *gf*
                   :LENGTH-SCALER *length-scaler*))
+
+
       (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
       (let ((step 0))
+        (setf (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND)
         (cl-mpm/dynamic-relaxation::run-quasi-time
          *sim*
          :output-dir output-dir
@@ -198,14 +202,6 @@
             (cl-mpm::sim-ghost-factor *sim*) nil))
          :plotter
          (lambda (sim)
-           (plot-domain)
-           (vgplot:title (format nil "Step ~D - Time ~F - ~A"
-                                 step
-                                 (cl-mpm::sim-time sim)
-                                 (if (equal (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
-                                     "Quasi-Static"
-                                     "Dynamic")))
-           (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
            (incf step))
          )
         )
