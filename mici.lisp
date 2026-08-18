@@ -21,17 +21,21 @@
 (defparameter *enable-viscosity* (if (uiop:getenv "VISC") (string= (uiop:getenv "VISC") "TRUE") nil))
 (format t "Running~%")
 
-(defparameter *top-dir* (merge-pathnames "/nobackup/rmvn14/thesis/mici/"))
+;; (defparameter *top-dir* (merge-pathnames "/nobackup/rmvn14/thesis/mici/"))
+(defparameter *top-dir* (merge-pathnames "./data/"))
 (defparameter *delay-time* 1d6)
 (defparameter *delay-exponent* 4d0)
-(defparameter *angle* 40d0)
+(defparameter *angle* 30d0)
 (defparameter *angle-r* 15d0)
 (defparameter *angle-psi* 5d0)
 (defparameter *rc* 0d0)
 (defparameter *gf* 10000d0)
 (defparameter *length-scaler* 2d0)
 (defparameter *enable-plastic-damage* nil)
-(defparameter *pd-oversize* 1d-4)
+(defparameter *pd-oversize* 1d-3)
+(defparameter *ductility* 10d0)
+(defparameter *tensile-strength* 0.2d0)
+
 
 (defun damage-refinement-criteria (sim mesh c)
   (let ((damage 0d0)
@@ -133,7 +137,6 @@
                )
               )))
 
-      
       (plot-domain)
 
       (setf (cl-mpm/damage::sim-enable-ekl *sim*) nil)
@@ -166,64 +169,106 @@
                   :LENGTH-SCALER *length-scaler*))
       (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
       (let ((step 0))
-        (cl-mpm/dynamic-relaxation::run-multi-stage
+        (cl-mpm/dynamic-relaxation::run-quasi-time
          *sim*
          :output-dir output-dir
-         :dt dt
-         :total-time 1d8
+         :dt 1d3
+         :total-time 1d6
          :dt-scale 0.9d0
-         :damping-factor (sqrt 2d0)
-         :conv-criteria 1d-3
-         :conv-load-steps 1
-         :min-adaptive-steps -12
-         :max-adaptive-steps 14
-         :adaption-constant 4
-         :max-damage-inc 0.6d0
-         :max-plastic-inc nil
-         :substeps 20
-         :save-vtk-loadstep t
-         :save-vtk-dr nil
+
          :enable-plastic t
          :enable-damage t
-         :plotter (lambda (sim))
-         :explicit-conv-criteria 1d-3
-         :elastic-dt-margin 1d3
-         :explicit-mass-scaling t
-         :explicit-dt-scale 0.5d0
-         :explicit-damping-factor 1d-4
-         ;:explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-usf
-         :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
-
-         ;:explicit-dt-scale explicit-dt-scale
-         ;:explicit-damping-factor 1d-3
-         ;:explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
-
-         ;:explicit-damping-factor 1d-2
-         ;:explicit-dt-scale 10d0
-         ;:explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic 
-         ;:explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-implicit-dynamic
-         :post-conv-step (lambda (sim)
-                           (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) nil))
-         :setup-quasi-static
+         :substeps 20
+         :min-adaptive-steps -12
+         :max-adaptive-steps 12
+         :adaption-constant 2
+         :max-damage-inc 0.5d0
+         :max-plastic-inc nil
+         :conv-criteria 1d-3
+         :save-vtk-loadstep t
+         :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
+         :initial-quasi-static t
+         :post-conv-step
          (lambda (sim)
-           (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
+           (setf (cl-mpm/dynamic-relaxation::sim-true-damping *sim*) (* 1d-4 (cl-mpm/setup::estimate-critical-damping *sim*)))
+           (setf (cl-mpm::sim-mass-scale *sim*) 1d0)
            (setf
-            (cl-mpm/aggregate::sim-enable-aggregate sim) t
-            (cl-mpm::sim-ghost-factor sim) nil
-            ;(cl-mpm/aggregate::sim-enable-aggregate sim) nil
-            ;(cl-mpm::sim-ghost-factor sim) (* 1d9 1d-2)
-            (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC
-            (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0))
-         :setup-dynamic
+            (cl-mpm::sim-velocity-algorithm *sim*) :TBLEND
+            (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
+            (cl-mpm::sim-ghost-factor *sim*) nil))
+         :plotter
          (lambda (sim)
-           (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
-           (setf 
-             (cl-mpm/damage::sim-damage-delocal-counter-max sim) 10
-             (cl-mpm/aggregate::sim-enable-aggregate sim) t
-             (cl-mpm::sim-ghost-factor sim) nil
-             ;(cl-mpm/aggregate::sim-enable-aggregate sim) nil
-             ;(cl-mpm::sim-ghost-factor sim) (* 918d0 1d-9) 
-             (cl-mpm::sim-velocity-algorithm sim) :TPIC
-             ;(cl-mpm::sim-velocity-algorithm sim) :TFLIP
-             ;(cl-mpm::sim-velocity-algorithm sim) :FLIP
-             (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) water-damping)))))))
+           (plot-domain)
+           (vgplot:title (format nil "Step ~D - Time ~F - ~A"
+                                 step
+                                 (cl-mpm::sim-time sim)
+                                 (if (equal (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
+                                     "Quasi-Static"
+                                     "Dynamic")))
+           (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
+           (incf step))
+         )
+        )
+      ;; (let ((step 0))
+      ;;   (cl-mpm/dynamic-relaxation::run-multi-stage
+      ;;    *sim*
+      ;;    :output-dir output-dir
+      ;;    :dt dt
+      ;;    :total-time 1d8
+      ;;    :dt-scale 0.9d0
+      ;;    :damping-factor (sqrt 2d0)
+      ;;    :conv-criteria 1d-3
+      ;;    :conv-load-steps 1
+      ;;    :min-adaptive-steps -12
+      ;;    :max-adaptive-steps 14
+      ;;    :adaption-constant 4
+      ;;    :max-damage-inc 0.6d0
+      ;;    :max-plastic-inc nil
+      ;;    :substeps 20
+      ;;    :save-vtk-loadstep t
+      ;;    :save-vtk-dr nil
+      ;;    :enable-plastic t
+      ;;    :enable-damage t
+      ;;    :plotter (lambda (sim))
+      ;;    :explicit-conv-criteria 1d-3
+      ;;    :elastic-dt-margin 1d3
+      ;;    :explicit-mass-scaling t
+      ;;    :explicit-dt-scale 0.5d0
+      ;;    :explicit-damping-factor 1d-4
+      ;;    ;:explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-damage-usf
+      ;;    :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
+
+      ;;    ;:explicit-dt-scale explicit-dt-scale
+      ;;    ;:explicit-damping-factor 1d-3
+      ;;    ;:explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
+
+      ;;    ;:explicit-damping-factor 1d-2
+      ;;    ;:explicit-dt-scale 10d0
+      ;;    ;:explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic 
+      ;;    ;:explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-octree-implicit-dynamic
+      ;;    :post-conv-step (lambda (sim)
+      ;;                      (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) nil))
+      ;;    :setup-quasi-static
+      ;;    (lambda (sim)
+      ;;      (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
+      ;;      (setf
+      ;;       (cl-mpm/aggregate::sim-enable-aggregate sim) t
+      ;;       (cl-mpm::sim-ghost-factor sim) nil
+      ;;       ;(cl-mpm/aggregate::sim-enable-aggregate sim) nil
+      ;;       ;(cl-mpm::sim-ghost-factor sim) (* 1d9 1d-2)
+      ;;       (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC
+      ;;       (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0))
+      ;;    :setup-dynamic
+      ;;    (lambda (sim)
+      ;;      (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
+      ;;      (setf 
+      ;;        (cl-mpm/damage::sim-damage-delocal-counter-max sim) 10
+      ;;        (cl-mpm/aggregate::sim-enable-aggregate sim) t
+      ;;        (cl-mpm::sim-ghost-factor sim) nil
+      ;;        ;(cl-mpm/aggregate::sim-enable-aggregate sim) nil
+      ;;        ;(cl-mpm::sim-ghost-factor sim) (* 918d0 1d-9) 
+      ;;        (cl-mpm::sim-velocity-algorithm sim) :TPIC
+      ;;        ;(cl-mpm::sim-velocity-algorithm sim) :TFLIP
+      ;;        ;(cl-mpm::sim-velocity-algorithm sim) :FLIP
+      ;;        (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) water-damping))))
+      )))
